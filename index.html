@@ -2,170 +2,178 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gráfico Tasa del FED</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        @font-face {
-            font-family: 'BlissLight';
-            src: url('font/BlissLight Regular.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gráfico Tasa del FED</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @font-face {
+      font-family: 'BlissLight';
+      src: url('font/BlissLight Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
 
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: "BlissLight", sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: "BlissLight", sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-        h2 {
-            text-align: center;
-            color: #373359;
-            margin: 10px 0;
-            font-size: clamp(0.8rem, 2vw, 1rem);
-        }
+    h2 {
+      text-align: center;
+      color: #373359;
+      margin: 6px 0 2px 0;
+      font-size: clamp(0.8rem, 2vw, 1rem);
+      flex-shrink: 0;
+    }
 
-        /* Contenedor flexible del gráfico */
-        .chart-wrapper {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: stretch;
-            /* 🔸 permite ocupar todo el alto */
-            padding: 6px;
-            box-sizing: border-box;
-            min-height: 0;
-            /* 🔸 evita overflow en contenedores flex */
-        }
+    .chart-wrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 6px;
+      box-sizing: border-box;
+      min-height: 0;
+    }
 
-        /* 🔹 Caja interna que se adapta completamente al alto disponible */
-        .chart-container {
-            position: relative;
-            flex: 1;
-            width: 100%;
-            max-width: 480px;
-            height: 100%;
-            /* 🔸 ocupa todo el alto del contenedor */
-            background-color: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
+    .chart-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
 
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain;
-        }
+    canvas {
+      flex: 1;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+    }
 
-        p.fuente {
-            text-align: center;
-            font-size: 0.8em;
-            color: #666;
-            margin: 10px 0;
-        }
-    </style>
+    .fuente {
+      font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+      color: #666;
+      position: absolute;
+      bottom: 4px;
+      text-align: center;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      margin: 0;
+      padding: 2px 0;
+    }
+  </style>
 </head>
 
 <body>
-    <h2>Tasa del FED (Federal Funds Rate)</h2>
+  <h2>Tasa del FED (Federal Funds Rate)</h2>
 
-    <div class="chart-wrapper">
-        <div class="chart-container">
-            <canvas id="fedRateChart"></canvas>
-        </div>
+  <div class="chart-wrapper">
+    <div class="chart-container">
+      <canvas id="fedRateChart"></canvas>
+      <p class="fuente">Fuente: Reserva Federal de EE. UU. (FRED)</p>
     </div>
+  </div>
 
-    <p class="fuente">Fuente: Reserva Federal de EE. UU. (FRED)</p>
+  <script>
+    const FRED_API_KEY = "a78a5a55f6a94d0dc5e07ed08b921056";
+    const SERIES_ID = "FEDFUNDS";
+    const CORS_PROXY = "https://api.allorigins.win/get?url=";
+    const FRED_ENDPOINT = `https://api.stlouisfed.org/fred/series/observations?series_id=${SERIES_ID}&api_key=${FRED_API_KEY}&file_type=json&observation_start=2000-01-01&sort_order=asc`;
+    const API_URL = `${CORS_PROXY}${encodeURIComponent(FRED_ENDPOINT)}`;
 
-    <script>
-        const FRED_API_KEY = "a78a5a55f6a94d0dc5e07ed08b921056";
-        const SERIES_ID = "FEDFUNDS";
-        const CORS_PROXY = "https://api.allorigins.win/get?url=";
-        const FRED_ENDPOINT = `https://api.stlouisfed.org/fred/series/observations?series_id=${SERIES_ID}&api_key=${FRED_API_KEY}&file_type=json&observation_start=2000-01-01&sort_order=asc`;
-        const API_URL = `${CORS_PROXY}${encodeURIComponent(FRED_ENDPOINT)}`;
+    async function fetchAndRenderChart() {
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
 
-        async function fetchAndRenderChart() {
-            try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
+        const fechas = [];
+        const valores = [];
 
-                const fechas = [];
-                const valores = [];
+        var object = JSON.parse(data.contents);
 
-                var object = JSON.parse(data.contents);
+        object.observations.forEach(obs => {
+          if (obs.value !== '.') {
+            fechas.push(obs.date);
+            valores.push(parseFloat(obs.value));
+          }
+        });
 
-                object.observations.forEach(obs => {
-                    if (obs.value !== '.') {
-                        fechas.push(obs.date);
-                        valores.push(parseFloat(obs.value));
-                    }
-                });
+        const ctx = document.getElementById('fedRateChart').getContext('2d');
 
-                const ctx = document.getElementById('fedRateChart').getContext('2d');
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: fechas,
-                        datasets: [{
-                            label: 'Tasa FED (%)',
-                            data: valores,
-                            borderColor: '#4A00B9',
-                            backgroundColor: 'rgba(74, 0, 185, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                ticks: {
-                                    maxTicksLimit: 10,
-                                    callback: function (val, index) {
-                                        const label = this.getLabelForValue(val);
-                                        return label.endsWith('-01-01') ? label.substring(0, 4) : null;
-                                    }
-                                }
-                            },
-                            y: {
-                                beginAtZero: false,
-                                title: {
-                                    display: true,
-                                    text: 'Tasa (%)'
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { mode: 'index', intersect: false }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error al obtener los datos de FRED:", error);
-                document.getElementById('fedRateChart').parentNode.innerHTML =
-                    '<p style="text-align: center; color: red;">Error al cargar los datos. Verifique la clave API.</p>';
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: fechas,
+            datasets: [{
+              label: 'Tasa FED (%)',
+              data: valores,
+              borderColor: '#4A00B9',
+              backgroundColor: 'rgba(74, 0, 185, 0.1)',
+              borderWidth: 2,
+              tension: 0.3,
+              pointRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                ticks: {
+                  maxTicksLimit: 6,
+                  font: ctx => ({ size: Math.max(6, ctx.chart.width / 80) }),
+                  callback: function (val) {
+                    const label = this.getLabelForValue(val);
+                    return label.endsWith('-01-01') ? label.substring(0, 4) : null;
+                  }
+                }
+              },
+              y: {
+                beginAtZero: false,
+                title: {
+                  display: true,
+                  text: 'Tasa (%)',
+                  font: { size: 10 }
+                },
+                ticks: {
+                  font: ctx => ({ size: Math.max(6, ctx.chart.height / 80) })
+                }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                bodyFont: { size: 10 }
+              }
             }
-        }
+          }
+        });
 
-        fetchAndRenderChart();
-    </script>
+      } catch (error) {
+        console.error("Error al obtener los datos de FRED:", error);
+        document.getElementById('fedRateChart').parentNode.innerHTML =
+          '<p style="text-align: center; color: red;">Error al cargar los datos. Verifique la clave API.</p>';
+      }
+    }
+
+    fetchAndRenderChart();
+  </script>
 </body>
-
 </html>
